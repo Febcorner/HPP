@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi HPP F&B</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding-bottom: 50px; }
+        .view-section { display: none; } /* Menyembunyikan halaman yang tidak aktif */
+        .view-section.active { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .card { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-dark bg-dark mb-4 sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="#" onclick="pindahHalaman('dashboard')">🎯 Kalkulator HPP</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- ================= HALAMAN DASHBOARD ================= -->
+        <div id="dashboard" class="view-section active text-center mt-5">
+            <h2 class="mb-4">Menu Utama</h2>
+            <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+                <button onclick="pindahHalaman('bahan')" class="btn btn-outline-primary btn-lg px-4">1. Master Bahan Baku</button>
+                <button onclick="pindahHalaman('kalkulator')" class="btn btn-success btn-lg px-4">2. Buat Resep & HPP</button>
+            </div>
+            <p class="text-muted mt-5"><small>Data tersimpan otomatis di perangkat Anda (LocalStorage)</small></p>
+        </div>
+
+        <!-- ================= HALAMAN MASTER BAHAN ================= -->
+        <div id="bahan" class="view-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>Gudang Bahan Baku</h4>
+                <button onclick="pindahHalaman('dashboard')" class="btn btn-secondary btn-sm">Kembali</button>
+            </div>
+
+            <!-- Form Tambah Bahan -->
+            <div class="card p-3 mb-4">
+                <form id="formBahan" onsubmit="simpanBahan(event)">
+                    <div class="row g-2">
+                        <div class="col-md-3"><input type="text" id="b_nama" class="form-control" placeholder="Nama Bahan" required></div>
+                        <div class="col-md-2">
+                            <select id="b_kategori" class="form-select" required>
+                                <option value="Bahan">Bahan</option><option value="Kemasan">Kemasan</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3"><input type="number" id="b_harga" class="form-control" placeholder="Total Harga Beli (Rp)" required></div>
+                        <div class="col-md-2"><input type="number" step="0.01" id="b_qty" class="form-control" placeholder="Isi/Berat" required></div>
+                        <div class="col-md-2">
+                            <select id="b_satuan" class="form-select">
+                                <option value="g">g</option><option value="ml">ml</option><option value="pcs">pcs</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 mt-3">+ Simpan Bahan</button>
+                </form>
+            </div>
+
+            <!-- Tabel Bahan -->
+            <div class="card p-3">
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle text-nowrap">
+                        <thead class="table-light">
+                            <tr><th>Nama Bahan</th><th>Kategori</th><th>Modal</th><th>Harga/Satuan</th><th>Aksi</th></tr>
+                        </thead>
+                        <tbody id="tabelBahan"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= HALAMAN KALKULATOR ================= -->
+        <div id="kalkulator" class="view-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>Buat Resep Baru</h4>
+                <button onclick="pindahHalaman('dashboard')" class="btn btn-secondary btn-sm">Kembali</button>
+            </div>
+
+            <div class="card p-3 mb-3">
+                <div class="row g-2">
+                    <div class="col-md-6"><label>Nama Menu</label><input type="text" id="r_nama" class="form-control"></div>
+                    <div class="col-md-2"><label>Yield (Porsi)</label><input type="number" id="r_yield" value="1" class="form-control" oninput="hitungHPP()"></div>
+                    <div class="col-md-2"><label>Overhead (Rp)</label><input type="number" id="r_overhead" value="0" class="form-control" oninput="hitungHPP()"></div>
+                    <div class="col-md-2"><label>Margin (%)</label><input type="number" id="r_margin" value="50" class="form-control" oninput="hitungHPP()"></div>
+                </div>
+            </div>
+
+            <div class="card p-3 mb-3">
+                <h5>Komposisi</h5>
+                <div id="wadahKomposisi"></div>
+                <button onclick="tambahBaris()" class="btn btn-outline-primary mt-2">+ Tambah Bahan</button>
+            </div>
+
+            <div class="card p-4 text-center bg-white border border-success">
+                <div class="text-muted">Total Modal Bahan: <span id="lbl_total_bahan">Rp 0</span></div>
+                <h5 class="mt-2">HPP PER PORSI</h5>
+                <h2 class="text-success fw-bold" id="lbl_hpp">Rp 0</h2>
+                <hr>
+                <h5>SARAN HARGA JUAL</h5>
+                <h3 class="text-primary fw-bold" id="lbl_jual">Rp 0</h3>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================= SCRIPT LOGIKA JAVASCRIPT ================= -->
+    <script>
+        // Inisialisasi Data dari LocalStorage
+        let dataBahan = JSON.parse(localStorage.getItem('db_bahan')) || [];
+
+        // FUNGSI NAVIGASI HALAMAN (SPA)
+        function pindahHalaman(idHalaman) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(idHalaman).classList.add('active');
+            
+            if(idHalaman === 'bahan') renderTabelBahan();
+            if(idHalaman === 'kalkulator') {
+                document.getElementById('wadahKomposisi').innerHTML = ''; // Kosongkan form
+                tambahBaris(); // Beri 1 baris awal
+                hitungHPP();
+            }
+        }
+
+        // ================= FITUR MASTER BAHAN =================
+        function simpanBahan(e) {
+            e.preventDefault(); // Mencegah reload halaman
+            const bahanBaru = {
+                id: Date.now(), // Buat ID unik berdasarkan waktu
+                nama: document.getElementById('b_nama').value,
+                kategori: document.getElementById('b_kategori').value,
+                hargaBeli: parseFloat(document.getElementById('b_harga').value),
+                qtyBeli: parseFloat(document.getElementById('b_qty').value),
+                satuan: document.getElementById('b_satuan').value
+            };
+            
+            dataBahan.push(bahanBaru);
+            localStorage.setItem('db_bahan', JSON.stringify(dataBahan)); // Simpan ke browser
+            document.getElementById('formBahan').reset(); // Bersihkan form
+            renderTabelBahan(); // Perbarui tabel
+        }
+
+        function hapusBahan(id) {
+            if(confirm('Hapus bahan ini?')) {
+                dataBahan = dataBahan.filter(b => b.id !== id);
+                localStorage.setItem('db_bahan', JSON.stringify(dataBahan));
+                renderTabelBahan();
+            }
+        }
+
+        function renderTabelBahan() {
+            const tbody = document.getElementById('tabelBahan');
+            tbody.innerHTML = '';
+            
+            if(dataBahan.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Data masih kosong.</td></tr>`;
+                return;
+            }
+
+            dataBahan.forEach(b => {
+                const hargaSatuan = b.hargaBeli / b.qtyBeli;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${b.nama}</strong><br><small class="text-muted">${b.qtyBeli} ${b.satuan}</small></td>
+                        <td><span class="badge bg-secondary">${b.kategori}</span></td>
+                        <td>Rp ${b.hargaBeli.toLocaleString('id-ID')}</td>
+                        <td class="text-success fw-bold">Rp ${hargaSatuan.toLocaleString('id-ID')} / ${b.satuan}</td>
+                        <td><button onclick="hapusBahan(${b.id})" class="btn btn-danger btn-sm">X</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        // ================= FITUR KALKULATOR RESEP =================
+        function buatOpsiBahan() {
+            let opsi = '<option value="">-- Pilih --</option>';
+            dataBahan.forEach(b => {
+                const hrgSatuan = b.hargaBeli / b.qtyBeli;
+                opsi += `<option value="${hrgSatuan}">${b.nama} (${b.satuan})</option>`;
+            });
+            return opsi;
+        }
+
+        function tambahBaris() {
+            const html = `
+                <div class="row g-2 mb-2 baris-komposisi align-items-center">
+                    <div class="col-5">
+                        <select class="form-select select-bahan" onchange="hitungHPP()">${buatOpsiBahan()}</select>
+                    </div>
+                    <div class="col-3">
+                        <input type="number" class="form-control input-qty" placeholder="Qty" oninput="hitungHPP()">
+                    </div>
+                    <div class="col-3 text-end fw-bold text-muted subtotal-item">Rp 0</div>
+                    <div class="col-1 text-end">
+                        <button class="btn btn-danger btn-sm" onclick="this.closest('.baris-komposisi').remove(); hitungHPP()">X</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('wadahKomposisi').insertAdjacentHTML('beforeend', html);
+        }
+
+        function hitungHPP() {
+            let totalBahan = 0;
+            const barisan = document.querySelectorAll('.baris-komposisi');
+            
+            // Hitung setiap baris
+            barisan.forEach(baris => {
+                const hargaSatuan = parseFloat(baris.querySelector('.select-bahan').value) || 0;
+                const qty = parseFloat(baris.querySelector('.input-qty').value) || 0;
+                const subtotal = hargaSatuan * qty;
+                
+                baris.querySelector('.subtotal-item').innerText = 'Rp ' + Math.round(subtotal).toLocaleString('id-ID');
+                totalBahan += subtotal;
+            });
+
+            // Hitung Grand Total
+            const yieldPorsi = parseFloat(document.getElementById('r_yield').value) || 1;
+            const overhead = parseFloat(document.getElementById('r_overhead').value) || 0;
+            const margin = parseFloat(document.getElementById('r_margin').value) || 0;
+
+            const hpp = (totalBahan + overhead) / yieldPorsi;
+            const jual = hpp + (hpp * (margin / 100));
+
+            // Tampilkan Hasil
+            document.getElementById('lbl_total_bahan').innerText = 'Rp ' + Math.round(totalBahan).toLocaleString('id-ID');
+            document.getElementById('lbl_hpp').innerText = 'Rp ' + Math.round(hpp).toLocaleString('id-ID');
+            document.getElementById('lbl_jual').innerText = 'Rp ' + Math.round(jual).toLocaleString('id-ID');
+        }
+    </script>
+</body>
+</html>
